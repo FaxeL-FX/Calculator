@@ -1,0 +1,52 @@
+.----------------[FUNCTIONS]----------------.
+| [1] Power functions                       |
+|   exp(x)                                  |
+|   ln(x)       log[x](y)                   |
+|   root[x](y)  sqrt(x)                     |
+| [2] Trigonometric functions               |
+|   cos(x)         arccos(x)                |
+|   sin(x)         arcsin(x)                |
+|   tan(x) tg(x)   arctan(x) arctg(x)       |
+|   cot(x) ctg(x)  arccot(x) arcctg(x)      |
+|   cosh(x)                                 |
+|   sinh(x)                                 |
+|   cyc(x)       - cycloid curve            |
+|   arccyc(x)    - arccycloid               |
+| [3] Complex number properties             |
+|   abs(z)  - absolute value                |
+|   Re(z)   - real part                     |
+|   Im(z)   - imaginary part                |
+|   Ang(z)  - angle (-3.14159 : 3.14159]    |
+|   ang(z)  - angle [0 : 6.28319)           |
+| [4] Other functions                       |
+|   exist(z)  - bool function               |
+|      0 if number is +-inf or NaN else 1   |
+|   existG(z) - gradient exist() function   |
+|      returns [0 : 1]                      |
+'-------------------------------------------'
+.----------------[CONSTANTS]----------------.
+| pi = 3.141592653... - half circle length  |
+| e  = 2.718281828... - exponent            |
+| i  - imaginary unit                       |
+'-------------------------------------------'
+.-----[VARIABLES]----. .------[GRAPHS]------.
+| x - abscissa       | | function       (x) |
+| y - ordinate       | | equal        (x,y) |
+| z - complex number | | complex set  (C,z) |
+|   z = x + yi       | |   C - last value   |
+'--------------------' '--------------------'
+.-----------------[COMMANDS]----------------.
+| help   - show this hint                   |
+| clear  - delete all content               |
+| del gr - delete 1 graph                   |
+| del eq - delete 1 equality                |
+| del pl - delete 1 plane                   |
+| erase  - update screen                    |
+| show   - show graph                       |
+| hide   - hide graph                       |
+| scale  - change screen scale              |
+| round  - toggle rounding                  |
+| axis   - toggle axis visibility           |
+| visual - visualizing calculations         |
+| hyper  - toggle hyperbolic graph mode     |
+'-------------------------------------------'
