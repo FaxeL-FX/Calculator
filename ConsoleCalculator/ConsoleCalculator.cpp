@@ -1,14 +1,13 @@
-﻿#include <iostream>
-#include <string>
-#include "../MathFunctions.cpp"
-#include <windows.h>
-#include <vector>
+﻿#include <windows.h>
+#include <iostream>
 #include <fstream>
+#include <string>
+#include <vector>
+#include "../MathFunctions.cpp"
 #include "BMPWriter.h"
-
 using namespace std;
 bool debug = 0, rounded = 0, axis = 1, grid = 1, visual = 0, hyperbolic = 0, render = 1, extends = 0;
-const string ver = "	v 1.7.0\n";
+const string ver = "	v 1.7.5\n";
 string inst;
 complex ans, Cnum;
 
@@ -17,10 +16,18 @@ struct object {
 	char	  content = '\0';
 	complex		value;
 	object() {}
-	object(int type, char content, double real) {
+	object(int empty) {}
+	object(int type, double real) {
+		this->type = type;
+		this->value.R = real;
+	}
+	object(int type, complex value) {
+		this->type = type;
+		this->value = value;
+	}
+	object(int type, char content) {
 		this->type = type;
 		this->content = content;
-		this->value.R = real;
 	}
 };
 struct graph {
@@ -66,6 +73,24 @@ void pen(int x, int y, int pixel) {
 		if (matrix[x][y] >= 0)	matrix[x][y] = pixel;
 		else if (pixel > 2)		matrix[x][y] = pixel;
 	}
+}
+float* pen(float* img, int width, int heigth, int x, int y, double pixel) {
+	int position = (heigth - y - 1) * width + x;
+	if ((0 <= position) && (position < width * heigth)) {
+		if ((0 <= x) && (x < width))
+			if ((0 <= y) && (y < heigth))
+				img[position] = pixel;
+	}
+	return img;
+}
+float* penAdd(float* img, int width, int heigth, int x, int y, double pixel) {
+	int position = y * width + x;
+	if ((0 <= position) && (position < width * heigth)) {
+		if ((0 <= x) && (x < width))
+			if ((0 <= y) && (y < heigth))
+				img[position] = 1 + ((img[position] - 1) * (1 - pixel));
+	}
+	return img;
 }
 void print_c(complex x) {
 	if (x.mod() == $inf) {
@@ -129,6 +154,10 @@ graph parse(string s) {
 		else if (s.substr(i, 6) == "arcctg")	babka.content = 'g';	//	arcctg (arccot)
 		else if (s.substr(i, 6) == "arccyc")	babka.content = 'd';	//	arccyc
 		else if (s.substr(i, 6) == "existG")	babka.content = '|';	//	arccyc
+		else if (s.substr(i, 6) == "cycle:") {
+			if (type == 0) type = 1;
+			babka.content = ':';	//	cycle
+		}
 
 		else if (s.substr(i, 5) == "arctg") {						//	arctg  (arctan)
 			babka.content = 't';
@@ -138,6 +167,7 @@ graph parse(string s) {
 		}
 		else if (s.substr(i, 5) == "root[")		babka.content = 'r';	//	real .R
 		else if (s.substr(i, 5) == "exist")		babka.content = '=';	//	exist
+		else if (s.substr(i, 5) == "gamma")		babka.content = '!';	//	gamma
 
 		else if (s.substr(i, 4) == "sqrt")		babka.content = 'q'; 	//	sqrt
 		else if (s.substr(i, 4) == "log[")		babka.content = '[';	//	log[
@@ -169,6 +199,7 @@ graph parse(string s) {
 			obj.push_back(babka);
 			continue;
 		}
+		else if (s.substr(i, 3) == "pl[")		babka.content = 'p';	//	pl[]
 
 		else if (s.substr(i, 2) == "ln")		babka.content = 'l';	//	ln
 		else if (s.substr(i, 2) == "tg") {		//	tg (tan)
@@ -186,6 +217,7 @@ graph parse(string s) {
 		}
 		else if (s.substr(i, 2) == "Re")		babka.content = 'R';
 		else if (s.substr(i, 2) == "Im")		babka.content = 'I';
+		else if (s.substr(i, 2) == "f[")		babka.content = 'f';	//	f[]
 		switch (babka.content) {								//	сдвиг символа
 		case('1'): {
 			i = i + 8;
@@ -197,12 +229,12 @@ graph parse(string s) {
 			obj.push_back(babka);
 			continue;
 		}
-		case('c'):case('s'):case('t'):case('g'):case('d'):case('|'): {
+		case('c'):case('s'):case('t'):case('g'):case('d'):case('|'):case(':'): {
 			i = i + 5;
 			obj.push_back(babka);
 			continue;
 		}
-		case('r'):case('='): {
+		case('r'):case('='):case('!'): {
 			i = i + 4;
 			obj.push_back(babka);
 			continue;
@@ -212,12 +244,12 @@ graph parse(string s) {
 			obj.push_back(babka);
 			continue;
 		}
-		case('S'):case('C'):case('e'):case('T'):case('G'):case('n'):case('m'):case('A'):case('D'): {
+		case('S'):case('C'):case('e'):case('T'):case('G'):case('n'):case('m'):case('A'):case('D'):case('p'): {
 			i = i + 2;
 			obj.push_back(babka);
 			continue;
 		}
-		case('l'):case('R'):case('I'): {
+		case('l'):case('R'):case('I'):case('f'): {
 			i++;
 			obj.push_back(babka);
 			continue;
@@ -241,7 +273,7 @@ graph parse(string s) {
 		}
 		case('('): {
 			if (!obj.empty()) if (obj.back().content == ')') {
-				object one(0, '\0', 1);
+				object one(0, (double)1);
 				obj.push_back(one);
 			}
 			babka.content = s[i];
@@ -330,6 +362,7 @@ graph parse(string s) {
 
 int bracket(vector<object> obj, int main, int i_max) { // возвращает номер закрывающей скобки для данной открывающей
 	for (int i = main + 1; i <= i_max; i++) {
+		if (i == obj.size()) return main;
 		if (obj[i].content == '(')	i = bracket(obj, i, i_max) + 1;
 		if (obj[i].content == ')')	return i;
 	}
@@ -489,6 +522,107 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			obj[c].type = 0;
 			return calc(obj, c, last, x, y);
 		}
+		else if (obj[first].content == 'f' || obj[first].content == 'p') {
+			int p = log_bracket(obj, first + 1, last);
+			if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, p + 2, last);
+			else																c = bracket(obj, p + 1, last);
+			complex index = calc(obj, first + 1, p - 1, x, y),
+				arg = calc(obj, p + 1, c, x, y);
+			if ((0 <= index.R) && (index.i == 0)) {
+				if (obj[first].content == 'f' && index <  f.size()) obj[c].value = calc( f[(int)index.R].fnc, 0,  f[(int)index.R].fnc.size() - 1, arg.R, arg.i);
+				if (obj[first].content == 'p' && index < pl.size())	obj[c].value = calc(pl[(int)index.R].fnc, 0, pl[(int)index.R].fnc.size() - 1, arg.R, arg.i);
+			}
+			else														obj[c].value == $NaN;
+			obj[c].type = 0;
+			return calc(obj, c, last, x, y);
+		}
+		else if (obj[first].content == ':') {
+			char Operation = obj[first + 1].content, arcOperation;
+			switch (Operation) {
+			case('e'): {
+				arcOperation = 'l';
+				break;
+			}
+			case('1'): {
+				arcOperation = 'l';
+				break;
+			}
+			case('2'): {
+				arcOperation = 'l';
+				break;
+			}
+			case('l'): {
+				arcOperation = 'e';
+				break;
+			}
+			case('C'): {
+				arcOperation = 'c';
+				break;
+			}
+			case('c'): {
+				arcOperation = 'C';
+				break;
+			}
+			case('S'): {
+				arcOperation = 's';
+				break;
+			}
+			case('s'): {
+				arcOperation = 'S';
+				break;
+			}
+			case('T'): {
+				arcOperation = 't';
+				break;
+			}
+			case('t'): {
+				arcOperation = 'T';
+				break;
+			}
+			case('G'): {
+				arcOperation = 'g';
+				break;
+			}
+			case('g'): {
+				arcOperation = 'G';
+				break;
+			}
+			case('D'): {
+				arcOperation = 'd';
+				break;
+			}
+			case('d'): {
+				arcOperation = 'D';
+				break;
+			}
+			default: arcOperation = '\0';
+			}
+			complex res = x + i * y;
+			vector<object> line;
+			if (arcOperation != '\0') for (int n = 0; n < 16; n++) {
+				object babka(2, Operation);
+				line.push_back(babka);
+				babka.content = '(';
+				line.push_back(babka);
+				babka.content = arcOperation;
+				line.push_back(babka);
+				babka.content = '(';
+				line.push_back(babka);
+				babka.type = 0;
+				babka.content = '\0';
+				babka.value = res;
+				line.push_back(babka);
+				babka.type = 2;
+				babka.content = ')';
+				line.push_back(babka);
+				line.push_back(babka);
+				res = calc(line, 0, line.size() - 1, x, y);
+				line.clear();
+			}
+			obj[first + 1].value = res;
+			obj[first + 1].type = 0;
+			return calc(obj, first + 1, last, x, y);
+		}
 		c = bracket(obj, first + 1, last);
 		complex res = calc(obj, first + 1, c, x, y);
 		switch (obj[first].content) {
@@ -615,6 +749,10 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 
 		case('z'): {
 			obj[c].value = zeta(res);
+			break;
+		}
+		case('!'): {
+			obj[c].value = gamma(res);
 			break;
 		}
 		}
@@ -829,6 +967,7 @@ void res(graph f) {
 	case(4): {
 		complex x, y;
 		for (int i = -500; i <= 500; i++) {
+			cout << '*';
 			x.R = (double)i / 50;
 			if (i % 50 == 0) {
 				for (int j = -500; j <= 500; j++) {
@@ -886,9 +1025,7 @@ int main(){
 				if ((-0.0001 < result.R) && (result.R < 0.0001)) result.R = 0;
 				if ((-0.0001 < result.i) && (result.i < 0.0001)) result.i = 0;
 			}
-			cout << "	";
-			print_c(result);
-			cout << "\n\n";
+			cout << "	" << result.toString() << "\n\n";
 			break;
 		}
 		case(1): {
@@ -943,7 +1080,7 @@ bool command(string command) {
 		}
 		return 1;
 	}
-	if (command == "del gr") {
+	if (command == "del f") {
 		if (f.empty()) return 1;
 		int j;
 		cout << "enter graph number: ";
@@ -1169,58 +1306,77 @@ bool command(string command) {
 	}
 
 	if (command == "print") {
-		// img[(width - y) * width + x]
+		// img[(heigth - y - 1) * width + x]
 		int width, heigth;
-		cout << "heigth width\n";
-		cin >> heigth >> width;
+		cout << "width[x] heigth[y]\n";
+		cin >> width >> heigth;
 		heigth++;
 		width++;
 		double scale_img = exp(ln((double)width / (y_max - y_min) * (double)heigth / (x_max - x_min)) / 2);
-		float* img = (float*)calloc(width * heigth, sizeof(float));
+		float* imgR		= (float*)calloc(width * heigth, sizeof(float));
+		float* imgG		= (float*)calloc(width * heigth, sizeof(float));
+		float* imgB		= (float*)calloc(width * heigth, sizeof(float));
+		float* imgEmpty = (float*)calloc(width * heigth, sizeof(float));
 		int x_slice = x_min * scale_img;
 		int y_slice = y_min * scale_img;
 		if (grid) {
 			float delta = fmod(y_min, 1);
 			for (int y = 1; y <= (y_max - y_min); y++) {
-				for (int x = 0; x < heigth; x++) {
-					int cord = (y + delta) * width / (y_max - y_min);
-					img[(width - cord) * width + x] = 0.125;
+				for (int x = 0; x < width; x++) {
+					int cord = (double)((y + delta) * heigth) / (y_max - y_min) + 0.5;
+					imgR = pen(imgR, width, heigth, x, cord, 0.125);
+					imgG = pen(imgG, width, heigth, x, cord, 0.125);
+					imgB = pen(imgB, width, heigth, x, cord, 0.125);
 				}
 			}
 			delta = fmod(x_min, 1);
 			for (int x = 1; x <= (x_max - x_min); x++) {
-				for (int y = 0; y < width; y++) {
-					int cord = (x + delta) * heigth / (x_max - x_min);
-					img[y * width + cord] = 0.125;
+				for (int y = 0; y < heigth; y++) {
+					int cord = (double)((x + delta) * width) / (x_max - x_min) + 0.5;
+					imgR = pen(imgR, width, heigth, cord, y, 0.125);
+					imgG = pen(imgG, width, heigth, cord, y, 0.125);
+					imgB = pen(imgB, width, heigth, cord, y, 0.125);
 				}
 			}
 		}
 		if (axis) {
-			if ((-heigth < x_slice) && (x_slice <= 0))
-				for (int y = 0; y < width; y++)
-					img[y * width - x_slice] = 0.25;
-			if (( -width < y_slice) && (y_slice <= 0))
-				for (int x = 0; x < heigth; x++)
-					img[-y_slice * width + x] = 0.25;
+			if ((-width < x_slice) && (x_slice <= 0))
+				for (int y = 0; y < heigth; y++) {
+					imgR = pen(imgR, width, heigth, 1 - x_slice, y, 0.25);
+					imgG = pen(imgG, width, heigth, 1 - x_slice, y, 0.25);
+					imgB = pen(imgB, width, heigth, 1 - x_slice, y, 0.25);
+				}
+					
+			if ((-heigth < y_slice) && (y_slice <= 0))
+				for (int x = 0; x < width; x++) {
+					imgR = pen(imgR, width, heigth, x, heigth + y_slice - 1, 0.25);
+					imgG = pen(imgG, width, heigth, x, heigth + y_slice - 1, 0.25);
+					imgB = pen(imgB, width, heigth, x, heigth + y_slice - 1, 0.25);
+				}
 		}
 		for (int k = 0; k < f.size(); k++) {
 			complex res, last_res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min - 1 / scale_img, 0);
-			int y, last_y = width - (last_res.R - y_min) * scale_img;
-			for (int x = 0; x < heigth; x++) {
+			int y, last_y = heigth - (last_res.R - y_min) * scale_img;
+			const float red_intensity = 0.625 + cos((double)k * 1.5) * 0.375,
+						green_intensity = 0.625 + cos((double)k * 1.5 + 2.0944) * 0.375,
+						blue_intensity = 0.625 + cos((double)k * 1.5 - 2.0944) * 0.375;
+			for (int x = 0; x < width; x++) {
 				res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min + x / scale_img, 0),
-				y = width - (res.R - y_min) * scale_img;
-				int min = width, max = 0;
+				y = heigth - (res.R - y_min) * scale_img;
+				int min = heigth, max = 0;
 				if (     y < min) min = y;
 				if (last_y < min) min = last_y;
 				if (     y > max) max = y;
 				if (last_y > max) max = last_y;
-				if (res.i == 0) {
-					if (min == max) min--;
-					if (max < width || min >= 0) {
-						if (max >= width) max = width - 1;
-						if (min < 0) min = 0;
-						for (int j = min; j < max; j++) {
-							img[j * width + x] = 1 + ((img[j * width + x] - 1) / 2);
+				if (res.i == 0 && ((0 <= max && max < heigth) || (0 <= min && min < heigth))) {
+					if (min == max) max++;
+					if (max >= heigth) max = heigth - 1;
+					if (min < 0) min = 0;
+					for (int j = min; j < max; j++) {
+						if ((0 <= j) && (j < heigth)) {
+							imgR = pen(imgR, width, heigth, x, j, red_intensity);
+							imgG = pen(imgG, width, heigth, x, j, green_intensity);
+							imgB = pen(imgB, width, heigth, x, j, blue_intensity);
 						}
 					}
 				}
@@ -1229,14 +1385,42 @@ bool command(string command) {
 			}
 		}
 		for (int i = 0; i < eq.size(); i++) {
-			if (eq[i].type != 2) continue;
+			if (eq[i].type == 2) {
+				cout << "render   0%";
+				double progress = 0;
+				int percent = 0;
+				const float red_intensity   = 1.625 - cos((double)i * 1.5 + 2.0944) * 0.375,
+							green_intensity = 1.625 - cos((double)i * 1.5 - 2.0944) * 0.375,
+							blue_intensity  = 1.625 - cos((double)i * 1.5) * 0.375;
+				for (int x = 0; x < width; x++)
+					for (int y = 0; y < heigth; y++) {
+						float w = res(eq[i], x / scale_img + x_min, y / scale_img + y_min);
+						imgR = penAdd(imgR, width, heigth, x, y, pow(w, red_intensity));
+						imgG = penAdd(imgG, width, heigth, x, y, pow(w, green_intensity));
+						imgB = penAdd(imgB, width, heigth, x, y, pow(w, blue_intensity));
+						progress++;
+						percent = 100 * progress / heigth / width;
+						cout << "\b\b";
+						if (percent > 9) cout << '\b';
+						if (percent > 99) cout << '\b';
+						cout << percent << '%';
+					}
+				cout << "\n";
+			}
+		}
+		for (int h = 0; h < pl.size(); h++) {
 			cout << "render   0%";
 			double progress = 0;
 			int percent = 0;
-			for (int x = 0; x < heigth; x++)
-				for (int y = 1; y <= width; y++) {
-					float w = res(eq[i], x / scale_img + x_min, y / scale_img + y_min);
-					if (img[(width - y) * width + x] < w) img[(width - y) * width + x] = w;
+			for (int x = 0; x < width; x++)
+				for (int y = 0; y < heigth; y++) {
+					complex res = calc(pl[h].fnc, 0, pl[h].fnc.size() - 1, x / scale_img + x_min, y / scale_img + y_min);
+					double	angle = arccos(res.R / res.mod()),
+						absolute = 1 - 1 / (res.mod() + 1);
+					if (res.i < 0) angle = -angle;
+					imgR = pen(imgR, width, heigth, x, y, (0.5 + res.R / res.mod() / 2) * absolute);
+					imgG = pen(imgG, width, heigth, x, y, (0.5 + cos(angle + 2 * pi / 3) / 2) * absolute);
+					imgB = pen(imgB, width, heigth, x, y, (0.5 + cos(angle - 2 * pi / 3) / 2) * absolute);
 					progress++;
 					percent = 100 * progress / heigth / width;
 					cout << "\b\b";
@@ -1246,8 +1430,11 @@ bool command(string command) {
 				}
 			cout << "\n";
 		}
-		BMPWriter::write_image(img, heigth, width, (char*)"D:/G/bmp_calc/graph.bmp");
-		cout << endl;
+		BMPWriter::write_image(imgR,     imgG,     imgB, heigth, width, (char*)"../bmp images/graphRGB.bmp");
+		BMPWriter::write_image(imgR, imgEmpty, imgEmpty, heigth, width, (char*)"../bmp images/graphR.bmp");
+		BMPWriter::write_image(imgEmpty, imgG, imgEmpty, heigth, width, (char*)"../bmp images/graphG.bmp");
+		BMPWriter::write_image(imgEmpty, imgEmpty, imgB, heigth, width, (char*)"../bmp images/graphB.bmp");
+		cout << "\nSuccess!\n";
 		return 1;
 	}
 	return 0;

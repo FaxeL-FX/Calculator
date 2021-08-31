@@ -4,7 +4,7 @@
 
 float BMPWriter::max_float = 1;
 
-void BMPWriter::write_image(float* image, int height, int width, char* file_name)
+void BMPWriter::write_image(float* red, float* green, float* blue, int height, int width, char* file_name)
 {
     HANDLE file = CreateFileA
     (
@@ -25,13 +25,14 @@ void BMPWriter::write_image(float* image, int height, int width, char* file_name
 
 
 
-    for(int y = 0; y < height; y++)
+    for(int y = height - 1; y >= 0; y--)
         for (int x = 0; x < width; x++)
         {
             int offset = (y * width + x);
-            int val = (int)(*(image + offset) * ((float)255 / max_float));
-            std::string gray_scale = std::to_string(val);
-            file_cnt.append(gray_scale + " " + gray_scale + " " + gray_scale + "\n");
+            int val_red = (int)(*(red + offset) * ((float)255 / max_float));
+            int val_green = (int)(*(green + offset) * ((float)255 / max_float));
+            int val_blue = (int)(*(blue + offset) * ((float)255 / max_float));
+            file_cnt.append(std::to_string(val_red) + " " + std::to_string(val_green) + " " + std::to_string(val_blue) + "\n");
         }
 
 

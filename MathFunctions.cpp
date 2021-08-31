@@ -15,39 +15,48 @@ const double	pi = 3.14159265358979,
 				$n_NaN = *(double*)&$n_NaN_0;
 
 double  power(double x, double y);
+double D(double x);
 
 //	типы
 struct complex {
 	double R = 0;
 	double i = 0;
 	double mod() {
-		if ((R >= 0) || (R < 0) || (i >= 0) || (i < 0)) {
-			if (R == 0)
-				if (i == 0)		return  0;
-				else if (i > 0)	return  i;
-				else			return -i;
-			else if (i == 0)
-				if (R > 0)		return  R;
-				else			return -R;
-			else if ((R == $inf) || (i == $inf) || (R == $n_inf) || (i == $n_inf))
-				return $inf;
-			else				return power(R * R + i * i, 0.5);
-		}
-		return $NaN;
+		if (isNaN()) return $NaN;
+		if (R == 0)
+			if (i == 0)		return  0;
+			else if (i > 0)	return  i;
+			else			return -i;
+		else if (i == 0)
+			if (R > 0)		return  R;
+			else			return -R;
+		else if ((R == $inf) || (i == $inf) || (R == $n_inf) || (i == $n_inf))
+			return $inf;
+		else				return power(R * R + i * i, 0.5);
 	}
 	std::string toString() {
+		if (isNaN()) return "NaN";
 		if (mod() == $inf)			return "inf";
 		if ((R == 0) && (i == 0))	return "0";
 		std::string str = "";
-		if (R != 0)			str += R;
+		if (R != 0)			str += std::to_string(R);
 		if ((i > 0) &&
 			(R != 0))		str += '+';
 		if ((i != -1) &&
 			(i != 0) &&
-			(i != 1))		str += i;
+			(i != 1))		str += std::to_string(i);
 		else if (i == -1)	str += '-';
 		if (i != 0)			str += 'i';
 		return str;
+	}
+	double toDouble() {
+		return D(R) * R * R / mod();
+	}
+	bool isNaN() {
+		unsigned long long	a = *(unsigned long long*)&R;
+		unsigned long long	b = *(unsigned long long*)&i;
+		if ((a >= 0 || a < 0) && (b >= 0 || b < 0)) return false;
+		return true;
 	}
 	complex() {}
 	complex(double num) {
@@ -106,12 +115,28 @@ bool    operator ==(complex x, complex y) {
 	if (x.R == y.R && x.i == y.i) return true;
 	return false;
 }
+bool    operator < (complex x, complex y) {
+	if (x.mod() < y.mod()) return true;
+	return false;
+}
+bool    operator > (complex x, complex y) {
+	return y < x;
+}
+bool    operator <=(complex x, complex y) {
+	return (x == y) || (x < y);
+}
+bool    operator >=(complex x, complex y) {
+	return (x == y) || (x > y);
+}
 
 //	functions
 double D(double x) {
 	if (x >= 0) return 1;
 	if (x < 0) return -1;
 	return 0;
+}
+int Round(double x) {
+	return (int)(x + 0.5);
 }
 
 double  ln_0_to_1(double x) {
@@ -283,9 +308,9 @@ double  arccos( double x) {
 		x = -x;
 	}
 	double t = 2 - 2 * x;
-	for (int i = 0; i <= iterations; i++) {
+	for (int i = 0; i <= iterations / 2; i++) {
 		double t2 = 0.5;
-		for (int j = 1; j <= iterations; j++) {
+		for (int j = 1; j <= iterations / 2; j++) {
 			if (j % 2 == 0) t2 = t2 + power(t, j) / fct(2 * (j + 1));
 			else			t2 = t2 - power(t, j) / fct(2 * (j + 1));
 		}
@@ -318,6 +343,33 @@ complex cycloid(complex x) {
 }
 complex arccyc(complex x) {
 	return arccos(1 - x) - power(2 * x - x * x, 0.5);
+}
+
+complex gamma_seed(complex x) {
+	//	[1 : 2]
+	return 0.63212055883 * power(x, x - 2) + 0.36787944117;
+	//	(0 : 1]
+	//return 1 / x + x / 2 - 0.5;
+	//	[1 : 2]
+	//x = x - 1.5;
+	//return x * x / 2 + 0.875;
+}
+complex gamma(complex x) {
+	if ((1 <= x.R) && (x.R <= 2)) {
+		complex res = gamma_seed(x);
+		for (int n = iterations; n > 0; n--) {
+			if (n % 2 == 0) {
+				res = (gamma_seed(x + 1) + res * x) / 2;
+			}
+			else {
+				res = (gamma_seed(x) + res / x) / 2;
+			}
+		}
+		return res;
+	}
+	if (2 < x.R) return (x - 1) * gamma(x - 1);
+	if (x.R < 1) return gamma(x + 1) / x;
+	return $NaN;
 }
 
 complex zeta(complex x) {
