@@ -1,8 +1,10 @@
 .----------------[FUNCTIONS]----------------.
 | [1] Power functions                       |
-|   exp(x)                                  |
-|   ln(x)       log[x](y)                   |
-|   root[x](y)  sqrt(x)                     |
+|   exp(x)     LimitExp(x) TaylorExp(x)     |
+|   ln(x)      log[x](y)                    |
+|   root[x](y) sqrt(x)                      |
+|   gamma(x)  - alternate form is (x-1)!    |
+|   Gamma(x)  - seed-function of gamma(x)   |
 | [2] Trigonometric functions               |
 |   cos(x)         arccos(x)                |
 |   sin(x)         arcsin(x)                |
@@ -18,11 +20,19 @@
 |   Im(z)   - imaginary part                |
 |   Ang(z)  - angle (-3.14159 : 3.14159]    |
 |   ang(z)  - angle [0 : 6.28319)           |
-| [4] Other functions                       |
-|   exist(z)  - bool function               |
+| [4] Analitic functions                    |
+|   Derivative(f(x))   Integral(f(x))       |
+|   sum[n]  - sum function n = [0 : iter]   |
+|   Sum[n]  -          n = [-iter : iter]   |
+| [5] Other functions                       |
+|   exist(x)  - bool function               |
 |      0 if number is +-inf or NaN else 1   |
-|   existG(z) - gradient exist() function   |
+|   existG(x) - gradient exist() function   |
 |      returns [0 : 1]                      |
+|   grid(x)   - grid drawing :D             |
+|   cycle: f  - testing function            |
+|                          & arcfunction    |
+|   f[x](y) / pl[x](y)  - functions call    |
 '-------------------------------------------'
 .----------------[CONSTANTS]----------------.
 | pi = 3.141592653... - half circle length  |
@@ -31,22 +41,36 @@
 '-------------------------------------------'
 .-----[VARIABLES]----. .------[GRAPHS]------.
 | x - abscissa       | | function       (x) |
-| y - ordinate       | | equal        (x,y) |
+| y - ordinate       | | equal      (x,y,z) |
 | z - complex number | | complex set  (C,z) |
 |   z = x + yi       | |   C - last value   |
+| n - iteration      | | plane          (z) |
+| (can use in sum[]) | |                    |
 '--------------------' '--------------------'
 .-----------------[COMMANDS]----------------.
 | help   - show this hint                   |
+| ver    - show version                     |
+| visual - visualizing calculations         |
+| extends- show variables values            |
+| render - toggle auto-rendering graphs     |
+|                                           |
+| round  - toggle rounding                  |
+| iter   - change iterations number         |
+|                                           |
 | clear  - delete all content               |
-| del gr - delete 1 graph                   |
+| erase  - update screen                    |
+| update - recommended after "iter" command |
+| del f  - delete 1 function                |
 | del eq - delete 1 equality                |
 | del pl - delete 1 plane                   |
-| erase  - update screen                    |
+|                                           |
 | show   - show graph                       |
 | hide   - hide graph                       |
-| scale  - change screen scale              |
-| round  - toggle rounding                  |
 | axis   - toggle axis visibility           |
-| visual - visualizing calculations         |
+| grid   - toggle grid in image             |
+| scale  - change screen scale              |
+| resize - change screen size               |
 | hyper  - toggle hyperbolic graph mode     |
+|                                           |
+| print  - bmp picture of showed graphs     |
 '-------------------------------------------'

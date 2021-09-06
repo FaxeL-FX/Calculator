@@ -32,6 +32,9 @@ void BMPWriter::write_image(float* red, float* green, float* blue, int height, i
             int val_red = (int)(*(red + offset) * ((float)255 / max_float));
             int val_green = (int)(*(green + offset) * ((float)255 / max_float));
             int val_blue = (int)(*(blue + offset) * ((float)255 / max_float));
+            if (val_red   < 0)   val_red = 0;
+            if (val_green < 0) val_green = 0;
+            if (val_blue  < 0)  val_blue = 0;
             file_cnt.append(std::to_string(val_red) + " " + std::to_string(val_green) + " " + std::to_string(val_blue) + "\n");
         }
 

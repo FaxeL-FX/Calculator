@@ -7,9 +7,9 @@
 #include "BMPWriter.h"
 using namespace std;
 bool debug = 0, rounded = 0, axis = 1, grid = 1, visual = 0, hyperbolic = 0, render = 1, extends = 0;
-const string ver = "	v 1.7.5\n";
+const string ver = "	v 1.9.0\n";
 string inst;
-complex ans, Cnum;
+complex ans, Cnum, n_;
 
 struct object {
 	int			 type = 0;
@@ -30,9 +30,19 @@ struct object {
 		this->content = content;
 	}
 };
+struct Color {
+	float R = 0, G = 0, B = 0;
+	Color(float R, float G, float B) {
+		this->R = R;
+		this->G = G;
+		this->B = B;
+	}
+	Color() {}
+};
 struct graph {
 	string name;
 	vector<object> fnc;
+	Color color;
 	int type = 0,
 		equal_index = 0;
 	bool show = true;
@@ -68,7 +78,7 @@ void draw();
 int bracket(vector<object> obj, int main, int i_max);
 int log_bracket(vector<object> obj, int i, int i_max);
 
-void pen(int x, int y, int pixel) {
+void   pen(int x, int y, int pixel) {
 	if (matrix[x][y] < pixel) {
 		if (matrix[x][y] >= 0)	matrix[x][y] = pixel;
 		else if (pixel > 2)		matrix[x][y] = pixel;
@@ -92,7 +102,7 @@ float* penAdd(float* img, int width, int heigth, int x, int y, double pixel) {
 	}
 	return img;
 }
-void print_c(complex x) {
+void   print_c(complex x) {
 	if (x.mod() == $inf) {
 		cout << "inf";
 		return;
@@ -110,7 +120,7 @@ void print_c(complex x) {
 	else if (x.i == -1) cout << '-';
 	if (x.i != 0)		cout << 'i';
 }
-graph parse(string s) {
+graph  parse(string s) {
 	int g = 0, equal_index = 0, type = 0;
 	bool dot = 0;
 	graph NewGraph;
@@ -144,8 +154,18 @@ graph parse(string s) {
 		g = 0;
 		dot = 0;
 		babka.type = 2;
-			 if	(s.substr(i, 9) == "TaylorExp") babka.content = '1';
-		else if (s.substr(i, 8) == "LimitExp")	babka.content = '2';
+		if		(s.substr(i, 10) == "Derivative") {
+			if (type == 0) type = 1;
+			babka.content = 'V';
+		}
+
+		if		(s.substr(i, 9) == "TaylorExp") babka.content = '1';
+
+		if		(s.substr(i, 8) == "LimitExp")	babka.content = '2';
+		else if (s.substr(i, 8) == "Integral") {
+			if (type == 0) type = 1;
+			babka.content = 'i';
+		}
 
 		else if (s.substr(i, 6) == "arccos")	babka.content = 'c';	//	arccos
 		else if (s.substr(i, 6) == "arcsin")	babka.content = 's';	//	arcsin
@@ -153,7 +173,7 @@ graph parse(string s) {
 		else if (s.substr(i, 6) == "arccot")	babka.content = 'g';	//	arccot
 		else if (s.substr(i, 6) == "arcctg")	babka.content = 'g';	//	arcctg (arccot)
 		else if (s.substr(i, 6) == "arccyc")	babka.content = 'd';	//	arccyc
-		else if (s.substr(i, 6) == "existG")	babka.content = '|';	//	arccyc
+		else if (s.substr(i, 6) == "existG")	babka.content = '|';	//	existG
 		else if (s.substr(i, 6) == "cycle:") {
 			if (type == 0) type = 1;
 			babka.content = ':';	//	cycle
@@ -165,16 +185,19 @@ graph parse(string s) {
 			obj.push_back(babka);
 			continue;
 		}
-		else if (s.substr(i, 5) == "root[")		babka.content = 'r';	//	real .R
+		else if (s.substr(i, 5) == "root[")		babka.content = 'r';	//	root[]
 		else if (s.substr(i, 5) == "exist")		babka.content = '=';	//	exist
 		else if (s.substr(i, 5) == "gamma")		babka.content = '!';	//	gamma
+		else if (s.substr(i, 5) == "Gamma")		babka.content = '?';	//	Gamma
 
 		else if (s.substr(i, 4) == "sqrt")		babka.content = 'q'; 	//	sqrt
-		else if (s.substr(i, 4) == "log[")		babka.content = '[';	//	log[
+		else if (s.substr(i, 4) == "log[")		babka.content = '[';	//	log[]
 		else if (s.substr(i, 4) == "cosh")		babka.content = '5';	//	cosh ->    cos(xi)
 		else if (s.substr(i, 4) == "sinh")		babka.content = '6';	//	sinh -> -i sin(xi)
 		else if (s.substr(i, 4) == "zeta")		babka.content = 'z';	//	zeta
 		else if (s.substr(i, 4) == "grid")		babka.content = '+';	//	grid
+		else if (s.substr(i, 4) == "sum[")		babka.content = 'y';
+		else if (s.substr(i, 4) == "Sum[")		babka.content = 'Y';
 
 		else if (s.substr(i, 3) == "sin")		babka.content = 'S';	//	sin
 		else if (s.substr(i, 3) == "cos")		babka.content = 'C';	//	cos
@@ -194,7 +217,7 @@ graph parse(string s) {
 		else if (s.substr(i, 3) == "Ang")		babka.content = 'A';	//	Ang (-3.14159 : 3.14159]
 		else if (s.substr(i, 3) == "ang")		babka.content = 'n';	//	ang [0 : 6.28319)
 		else if (s.substr(i, 3) == "inf") {							//	inf
-			babka.value.R = $inf;
+			babka.value = $inf;
 			i = i + 2;
 			obj.push_back(babka);
 			continue;
@@ -219,12 +242,17 @@ graph parse(string s) {
 		else if (s.substr(i, 2) == "Im")		babka.content = 'I';
 		else if (s.substr(i, 2) == "f[")		babka.content = 'f';	//	f[]
 		switch (babka.content) {								//	сдвиг символа
+		case('V'): {
+			i = i + 9;
+			obj.push_back(babka);
+			continue;
+		}
 		case('1'): {
 			i = i + 8;
 			obj.push_back(babka);
 			continue;
 		}
-		case('2'): {
+		case('2'):case('i'): {
 			i = i + 7;
 			obj.push_back(babka);
 			continue;
@@ -234,12 +262,12 @@ graph parse(string s) {
 			obj.push_back(babka);
 			continue;
 		}
-		case('r'):case('='):case('!'): {
+		case('r'):case('='):case('!'):case('?'): {
 			i = i + 4;
 			obj.push_back(babka);
 			continue;
 		}
-		case('q'):case('['):case('5'):case('6'):case('z'):case('+'): {
+		case('q'):case('['):case('5'):case('6'):case('z'):case('+'):case('y'):case('Y'): {
 			i = i + 3;
 			obj.push_back(babka);
 			continue;
@@ -320,9 +348,9 @@ graph parse(string s) {
 			obj.push_back(babka);
 			break;
 		}
-		case('π'): {
-			babka.type = 0;
-			babka.value.R = pi;
+		case('n'): {
+			babka.type = 3;
+			babka.content = 'n';
 			obj.push_back(babka);
 			break;
 		}
@@ -407,15 +435,17 @@ int first_1_priority(vector<object> obj, int i, int i_max) {	// возвраща
 
 complex value(object obj, complex x, complex y) {
 	if (obj.type == 3) {
-		if (obj.content == 'a') return ans;
+		if (obj.content == 'z') return x + i * y;
 		if (obj.content == 'x') return x;
 		if (obj.content == 'y') return y;
-		if (obj.content == 'z') return x + i * y;
+		if (obj.content == 'a') return ans;
+		if (obj.content == 'n') return n_;
 	}
 	if (obj.type == 4) return Cnum;
 	return obj.value;
 }
 complex calc(vector<object> obj, int first, int last, complex x, complex y) {
+	if (last > obj.size()) last = obj.size() - 1;
 	if (debug) {
 		cout << "\ncalc[" << first << ":" << last << "]\n";
 		for (int i = 0; i < obj.size(); i++) {
@@ -485,6 +515,7 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			obj[c].type = 0;
 			return calc(obj, c, last, x, y);
 		}
+
 		if (obj[first].content == '-') {
 			c = first_1_priority(obj, first + 1, last);
 			complex _res = calc(obj, first + 1, c, x, y);
@@ -499,44 +530,7 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			obj[c].type = 0;
 			return calc(obj, c, last, x, y);
 		}
-		if		(obj[first].content == '[') {
-			int p = log_bracket(obj, first + 1, last);
-			if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, p + 2, last);
-			else																c = bracket(obj, p + 1, last);
-			obj[c].value = ln(calc(obj, p + 1, c, x, y)) / ln(calc(obj, first + 1, p - 1, x, y));
-			obj[c].type = 0;
-			return calc(obj, c, last, x, y);
-		}
-		else if (obj[first].content == 'r') {
-			int p = log_bracket(obj, first + 1, last);
-			if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, p + 2, last);
-			else																c = bracket(obj, p + 1, last);
-			complex pow = calc(obj, first + 1, p - 1, x, y),
-					floor = calc(obj, p + 1, c, x, y);
-			if (pow.mod() == $inf)			obj[c].value = 1;
-			else if (pow.mod() == 0)
-				if (floor.mod() > 1)		obj[c].value = $inf;
-				else if (floor.mod() == 1)	obj[c].value = 1;
-				else						obj[c].value = 0;
-			else							obj[c].value = power(floor, 1 / pow);
-			obj[c].type = 0;
-			return calc(obj, c, last, x, y);
-		}
-		else if (obj[first].content == 'f' || obj[first].content == 'p') {
-			int p = log_bracket(obj, first + 1, last);
-			if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, p + 2, last);
-			else																c = bracket(obj, p + 1, last);
-			complex index = calc(obj, first + 1, p - 1, x, y),
-				arg = calc(obj, p + 1, c, x, y);
-			if ((0 <= index.R) && (index.i == 0)) {
-				if (obj[first].content == 'f' && index <  f.size()) obj[c].value = calc( f[(int)index.R].fnc, 0,  f[(int)index.R].fnc.size() - 1, arg.R, arg.i);
-				if (obj[first].content == 'p' && index < pl.size())	obj[c].value = calc(pl[(int)index.R].fnc, 0, pl[(int)index.R].fnc.size() - 1, arg.R, arg.i);
-			}
-			else														obj[c].value == $NaN;
-			obj[c].type = 0;
-			return calc(obj, c, last, x, y);
-		}
-		else if (obj[first].content == ':') {
+		if (obj[first].content == ':') {
 			char Operation = obj[first + 1].content, arcOperation;
 			switch (Operation) {
 			case('e'): {
@@ -623,7 +617,56 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			obj[first + 1].type = 0;
 			return calc(obj, first + 1, last, x, y);
 		}
-		c = bracket(obj, first + 1, last);
+
+		int p = log_bracket(obj, first + 1, last);
+		if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, p + 2, last);
+		else																c = bracket(obj, p + 1, last);
+		switch (obj[first].content) {
+		case('['): {
+			obj[c].value = ln(calc(obj, p + 1, c, x, y)) / ln(calc(obj, first + 1, p - 1, x, y));
+			obj[c].type = 0;
+			return calc(obj, c, last, x, y);
+		}
+		case('r'): {
+			complex pow = calc(obj, first + 1, p - 1, x, y),
+				floor = calc(obj, p + 1, c, x, y);
+			if (pow.mod() == $inf)			obj[c].value = 1;
+			else if (pow.mod() == 0)
+				if (floor.mod() > 1)		obj[c].value = $inf;
+				else if (floor.mod() == 1)	obj[c].value = 1;
+				else						obj[c].value = 0;
+			else							obj[c].value = power(floor, 1 / pow);
+			obj[c].type = 0;
+			return calc(obj, c, last, x, y);
+		}
+		case('f'):case('p'): {
+			complex index = calc(obj, first + 1, p - 1, x, y),
+					arg = calc(obj, p + 1, c, x, y);
+			if ((0 <= index.R) && (index.i == 0)) {
+				if (obj[first].content == 'f' && index <  f.size())	obj[c].value = calc( f[(int)index.R].fnc, 0,  f[(int)index.R].fnc.size() - 1, arg.R, arg.i);
+				if (obj[first].content == 'p' && index < pl.size())	obj[c].value = calc(pl[(int)index.R].fnc, 0, pl[(int)index.R].fnc.size() - 1, arg.R, arg.i);
+			}
+			else													obj[c].value == $NaN;
+			obj[c].type = 0;
+			return calc(obj, c, last, x, y);
+		}
+		case('y'):case('Y'): {
+			complex res;
+			int min = 0;
+			if (obj[first].content == 'Y') min = -2 * iterations;
+			for (int i = min; i <= iterations * 2; i++) {
+				n_ = i;
+				complex part = calc(obj, first + 1, p - 1, x, y);
+				if (part.mod() == $inf || !part.isNum()) continue;
+				res = res + part;
+			}
+			obj[p].value = res;
+			obj[p].type = 0;
+			return calc(obj, p, last, x, y);
+		}
+		}
+		if ((obj[first + 1].type == 2) && (obj[first + 1].content != '('))	c = bracket(obj, first + 2, last);
+		else																c = bracket(obj, first + 1, last);
 		complex res = calc(obj, first + 1, c, x, y);
 		switch (obj[first].content) {
 		case('m'): {
@@ -705,11 +748,11 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			break;
 		}
 		case('1'): {
-			obj[c].value = exp(res, 1);
+			obj[c].value = taylor_exp(res);
 			break;
 		}
 		case('2'): {
-			obj[c].value = exp(res, 0);
+			obj[c].value = fast_exp(res);
 			break;
 		}
 		case('q'): {
@@ -755,6 +798,35 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 			obj[c].value = gamma(res);
 			break;
 		}
+		case('?'): {
+			obj[c].value = gamma_s(res);
+			break;
+		}
+
+		case('V'): {
+			complex del_f = calc(obj, first + 1, c, x + 0.5 / iterations, y) - calc(obj, first + 1, c, x, y);
+			obj[c].value = del_f;
+			del_f = calc(obj, first + 1, c, x, y) - calc(obj, first + 1, c, x - 0.5 / iterations, y);
+			obj[c].value = (obj[c].value + del_f) * iterations;
+			break;
+		}
+		case('i'): {
+			const int iter = 2 * iterations;
+			complex res, arg(x.R, y.R), slice = calc(obj, first + 1, c, 0, 0);
+			double
+				Zx = x.R / iter,
+				Zy = y.R / iter;
+			for (int j = 1; j <= iter; j++) {
+				complex
+					real = calc(obj, first + 1, c, (Zx) * j, 0),
+					imag = calc(obj, first + 1, c, 0, (Zy) * j);
+				if (j < iter)	res = res + real + imag - slice;
+				else			res = res + 0.5 * (real + imag - slice);
+			}
+			obj[c].value = arg * res / iter + slice;
+			obj[c].type = 0;
+			return calc(obj, c, last, x, y);
+		}
 		}
 		obj[c].type = 0;
 		return calc(obj, c, last, x, y);
@@ -763,7 +835,7 @@ complex calc(vector<object> obj, int first, int last, complex x, complex y) {
 	return value(obj[first], x, y);
 }
 
-void res_4(complex res) {
+void  res_4(complex res) {
 	double X = (res.R - x_min) / x_resolution, Y = (res.i - y_min) / y_resolution;
 	complex s((int)X * x_resolution + x_min, (int)Y * y_resolution + y_min);
 	double D = (res - s).mod();
@@ -792,7 +864,7 @@ void res_4(complex res) {
 	if (D <= 0)					pixel++;
 	pen(i, j, pixel);
 }
-void res(graph f) {
+void  res(graph f) {
 	vector<object> obj = f.fnc;
 	switch (f.type) {
 	case(1): {
@@ -1029,6 +1101,9 @@ int main(){
 			break;
 		}
 		case(1): {
+			NewGraph.color.R = 0.625 + cos((float)f.size() * 1.5) * 0.375;
+			NewGraph.color.G = 0.625 + cos((float)f.size() * 1.5 + 2.0944) * 0.375;
+			NewGraph.color.B = 0.625 + cos((float)f.size() * 1.5 - 2.0944) * 0.375;
 			f.push_back(NewGraph);
 			draw();
 			break;
@@ -1039,6 +1114,9 @@ int main(){
 			break;
 		}
 		default: {
+			NewGraph.color.R = 2 - cos((float)eq.size() * 1.5 + 2.0944);
+			NewGraph.color.G = 2 - cos((float)eq.size() * 1.5 - 2.0944);
+			NewGraph.color.B = 2 - cos((float)eq.size() * 1.5);
 			eq.push_back(NewGraph);
 			draw();
 		}
@@ -1110,6 +1188,11 @@ bool command(string command) {
 		pl.erase(pl.begin() + j);
 		clear_matrix();
 		system("cls");
+		draw();
+		return 1;
+	}
+	if (command == "update") {
+		clear_matrix();
 		draw();
 		return 1;
 	}
@@ -1263,13 +1346,7 @@ bool command(string command) {
 		else			cout << "	OFF\n";
 		return 1;
 	}
-	if (command == "optimized") {
-		optimized = !optimized;
-		if (optimized)	cout << "	ON\n";
-		else			cout << "	OFF\n";
-		return 1;
-	}
-	if (command == "iterations") {
+	if (command == "iter") {
 		cout << "	" << iterations << " ==[0 : 256]=> ";
 		cin >> iterations;
 		if (iterations < 0) iterations = 0;
@@ -1310,9 +1387,11 @@ bool command(string command) {
 		int width, heigth;
 		cout << "width[x] heigth[y]\n";
 		cin >> width >> heigth;
-		heigth++;
-		width++;
-		double scale_img = exp(ln((double)width / (y_max - y_min) * (double)heigth / (x_max - x_min)) / 2);
+		heigth += (x_max - x_min) - 1;
+		width  += (y_max - y_min) - 1;
+		double scale_img = (double)width / (y_max - y_min);
+		if (scale_img > (double)heigth / (x_max - x_min))
+			scale_img = (double)heigth / (x_max - x_min);
 		float* imgR		= (float*)calloc(width * heigth, sizeof(float));
 		float* imgG		= (float*)calloc(width * heigth, sizeof(float));
 		float* imgB		= (float*)calloc(width * heigth, sizeof(float));
@@ -1323,7 +1402,7 @@ bool command(string command) {
 			float delta = fmod(y_min, 1);
 			for (int y = 1; y <= (y_max - y_min); y++) {
 				for (int x = 0; x < width; x++) {
-					int cord = (double)((y + delta) * heigth) / (y_max - y_min) + 0.5;
+					int cord = (double)((y + delta) * heigth) / (y_max - y_min);
 					imgR = pen(imgR, width, heigth, x, cord, 0.125);
 					imgG = pen(imgG, width, heigth, x, cord, 0.125);
 					imgB = pen(imgB, width, heigth, x, cord, 0.125);
@@ -1332,7 +1411,7 @@ bool command(string command) {
 			delta = fmod(x_min, 1);
 			for (int x = 1; x <= (x_max - x_min); x++) {
 				for (int y = 0; y < heigth; y++) {
-					int cord = (double)((x + delta) * width) / (x_max - x_min) + 0.5;
+					int cord = (double)((x + delta) * width) / (x_max - x_min);
 					imgR = pen(imgR, width, heigth, cord, y, 0.125);
 					imgG = pen(imgG, width, heigth, cord, y, 0.125);
 					imgB = pen(imgB, width, heigth, cord, y, 0.125);
@@ -1340,72 +1419,15 @@ bool command(string command) {
 			}
 		}
 		if (axis) {
-			if ((-width < x_slice) && (x_slice <= 0))
-				for (int y = 0; y < heigth; y++) {
-					imgR = pen(imgR, width, heigth, 1 - x_slice, y, 0.25);
-					imgG = pen(imgG, width, heigth, 1 - x_slice, y, 0.25);
-					imgB = pen(imgB, width, heigth, 1 - x_slice, y, 0.25);
-				}
-					
-			if ((-heigth < y_slice) && (y_slice <= 0))
-				for (int x = 0; x < width; x++) {
-					imgR = pen(imgR, width, heigth, x, heigth + y_slice - 1, 0.25);
-					imgG = pen(imgG, width, heigth, x, heigth + y_slice - 1, 0.25);
-					imgB = pen(imgB, width, heigth, x, heigth + y_slice - 1, 0.25);
-				}
-		}
-		for (int k = 0; k < f.size(); k++) {
-			complex res, last_res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min - 1 / scale_img, 0);
-			int y, last_y = heigth - (last_res.R - y_min) * scale_img;
-			const float red_intensity = 0.625 + cos((double)k * 1.5) * 0.375,
-						green_intensity = 0.625 + cos((double)k * 1.5 + 2.0944) * 0.375,
-						blue_intensity = 0.625 + cos((double)k * 1.5 - 2.0944) * 0.375;
-			for (int x = 0; x < width; x++) {
-				res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min + x / scale_img, 0),
-				y = heigth - (res.R - y_min) * scale_img;
-				int min = heigth, max = 0;
-				if (     y < min) min = y;
-				if (last_y < min) min = last_y;
-				if (     y > max) max = y;
-				if (last_y > max) max = last_y;
-				if (res.i == 0 && ((0 <= max && max < heigth) || (0 <= min && min < heigth))) {
-					if (min == max) max++;
-					if (max >= heigth) max = heigth - 1;
-					if (min < 0) min = 0;
-					for (int j = min; j < max; j++) {
-						if ((0 <= j) && (j < heigth)) {
-							imgR = pen(imgR, width, heigth, x, j, red_intensity);
-							imgG = pen(imgG, width, heigth, x, j, green_intensity);
-							imgB = pen(imgB, width, heigth, x, j, blue_intensity);
-						}
-					}
-				}
-				last_res = res,
-				last_y = y;
+			for (int y = 0; y < heigth; y++) {
+				imgR = pen(imgR, width, heigth, 0.5 - x_slice, y, 0.25);
+				imgG = pen(imgG, width, heigth, 0.5 - x_slice, y, 0.25);
+				imgB = pen(imgB, width, heigth, 0.5 - x_slice, y, 0.25);
 			}
-		}
-		for (int i = 0; i < eq.size(); i++) {
-			if (eq[i].type == 2) {
-				cout << "render   0%";
-				double progress = 0;
-				int percent = 0;
-				const float red_intensity   = 1.625 - cos((double)i * 1.5 + 2.0944) * 0.375,
-							green_intensity = 1.625 - cos((double)i * 1.5 - 2.0944) * 0.375,
-							blue_intensity  = 1.625 - cos((double)i * 1.5) * 0.375;
-				for (int x = 0; x < width; x++)
-					for (int y = 0; y < heigth; y++) {
-						float w = res(eq[i], x / scale_img + x_min, y / scale_img + y_min);
-						imgR = penAdd(imgR, width, heigth, x, y, pow(w, red_intensity));
-						imgG = penAdd(imgG, width, heigth, x, y, pow(w, green_intensity));
-						imgB = penAdd(imgB, width, heigth, x, y, pow(w, blue_intensity));
-						progress++;
-						percent = 100 * progress / heigth / width;
-						cout << "\b\b";
-						if (percent > 9) cout << '\b';
-						if (percent > 99) cout << '\b';
-						cout << percent << '%';
-					}
-				cout << "\n";
+			for (int x = 0; x < width; x++) {
+				imgR = pen(imgR, width, heigth, x, heigth + y_slice - 0.5, 0.25);
+				imgG = pen(imgG, width, heigth, x, heigth + y_slice - 0.5, 0.25);
+				imgB = pen(imgB, width, heigth, x, heigth + y_slice - 0.5, 0.25);
 			}
 		}
 		for (int h = 0; h < pl.size(); h++) {
@@ -1414,7 +1436,7 @@ bool command(string command) {
 			int percent = 0;
 			for (int x = 0; x < width; x++)
 				for (int y = 0; y < heigth; y++) {
-					complex res = calc(pl[h].fnc, 0, pl[h].fnc.size() - 1, x / scale_img + x_min, y / scale_img + y_min);
+					complex res = calc(pl[h].fnc, 0, pl[h].fnc.size() - 1, (x + 0.5) / scale_img + x_min, (y + 0.5) / scale_img + y_min);
 					double	angle = arccos(res.R / res.mod()),
 						absolute = 1 - 1 / (res.mod() + 1);
 					if (res.i < 0) angle = -angle;
@@ -1430,11 +1452,61 @@ bool command(string command) {
 				}
 			cout << "\n";
 		}
+		for (int k = 0; k <  f.size(); k++) {
+			complex res, last_res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min, 0);
+			int y, last_y = heigth - (last_res.R - y_min) * scale_img;
+			for (int x = 0; x < width; x++) {
+				res = calc(f[k].fnc, 0, f[k].fnc.size() - 1, x_min + (x + 1) / scale_img, 0),
+				y = heigth - (res.R - y_min) * scale_img;
+				int min = heigth, max = 0;
+				if (     y < min) min = y;
+				if (last_y < min) min = last_y;
+				if (     y > max) max = y;
+				if (last_y > max) max = last_y;
+				if (res.i == 0 && ((0 <= max && max < heigth) || (0 <= min && min < heigth))) {
+					if (min == max) max++;
+					if (max >= heigth) max = heigth - 1;
+					if (min < 0) min = 0;
+					for (int j = min; j < max; j++) {
+						if ((0 <= j) && (j < heigth)) {
+							imgR = pen(imgR, width, heigth, x, j, f[k].color.R);
+							imgG = pen(imgG, width, heigth, x, j, f[k].color.G);
+							imgB = pen(imgB, width, heigth, x, j, f[k].color.B);
+						}
+					}
+				}
+				last_res = res,
+				last_y = y;
+			}
+		}
+		for (int i = 0; i < eq.size(); i++) {
+			if (eq[i].type == 2) {
+				cout << "render   0%";
+				double progress = 0;
+				int percent = 0;
+				for (int x = 0; x < width; x++)
+					for (int y = 0; y < heigth; y++) {
+						float w = res(eq[i], (x + 0.5) / scale_img + x_min, (y + 0.5) / scale_img + y_min);
+						iterations /= 2;
+						imgR = penAdd(imgR, width, heigth, x, y, power(w, eq[i].color.R));
+						imgG = penAdd(imgG, width, heigth, x, y, power(w, eq[i].color.G));
+						imgB = penAdd(imgB, width, heigth, x, y, power(w, eq[i].color.B));
+						iterations *= 2;
+						progress++;
+						percent = 100 * progress / heigth / width;
+						cout << "\b\b";
+						if (percent > 9) cout << '\b';
+						if (percent > 99) cout << '\b';
+						cout << percent << '%';
+					}
+				cout << "\n";
+			}
+		}
 		BMPWriter::write_image(imgR,     imgG,     imgB, heigth, width, (char*)"../bmp images/graphRGB.bmp");
+		cout << "\nSuccess!\n";
 		BMPWriter::write_image(imgR, imgEmpty, imgEmpty, heigth, width, (char*)"../bmp images/graphR.bmp");
 		BMPWriter::write_image(imgEmpty, imgG, imgEmpty, heigth, width, (char*)"../bmp images/graphG.bmp");
 		BMPWriter::write_image(imgEmpty, imgEmpty, imgB, heigth, width, (char*)"../bmp images/graphB.bmp");
-		cout << "\nSuccess!\n";
 		return 1;
 	}
 	return 0;
@@ -1469,10 +1541,8 @@ void draw() {
 			v = 1;
 			visual = 0;
 		}
-		optimized = 1;
 		for (int i = 0; i < pl.size(); i++) if (pl[i].show) res(pl[i]);
 		for (int i = 0; i < eq.size(); i++) if (eq[i].show) res(eq[i]);
-		optimized = 0;
 		for (int i = 0; i < f.size(); i++) if (f[i].show) res(f[i]);
 		if (v) visual = 1;
 	}

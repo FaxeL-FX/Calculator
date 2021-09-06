@@ -1,20 +1,22 @@
 ﻿#include <string>
 
 //	константы
-bool optimized = 0;
 int iterations = 32;
 const unsigned long long	$inf_0   = 0x7ff0000000000000,
 							$n_inf_0 = 0xfff0000000000000,
 							$NaN_0   = 0x7fffffffffffffff,
 							$n_NaN_0 = 0xffffffffffffffff;
-const double	pi = 3.14159265358979,
-				e = 2.71828182845905,
-				$inf = *(double*)&$inf_0,
+const double	pi  = 3.14159265358979,
+				tau = 6.28318530717959,
+				e   = 2.71828182845905,
+				$inf   = *(double*)&$inf_0,
 				$n_inf = *(double*)&$n_inf_0,
-				$NaN = *(double*)&$NaN_0,
+				$NaN   = *(double*)&$NaN_0,
 				$n_NaN = *(double*)&$n_NaN_0;
 
 double  power(double x, double y);
+double  arccos(double x);
+double  factorial(double x);
 double D(double x);
 
 //	типы
@@ -22,7 +24,7 @@ struct complex {
 	double R = 0;
 	double i = 0;
 	double mod() {
-		if (isNaN()) return $NaN;
+		if (!isNum()) return $NaN;
 		if (R == 0)
 			if (i == 0)		return  0;
 			else if (i > 0)	return  i;
@@ -30,12 +32,17 @@ struct complex {
 		else if (i == 0)
 			if (R > 0)		return  R;
 			else			return -R;
-		else if ((R == $inf) || (i == $inf) || (R == $n_inf) || (i == $n_inf))
-			return $inf;
+		else if (R == $n_inf || R == $inf || i == $n_inf || i == $inf) 
+							return $inf;
 		else				return power(R * R + i * i, 0.5);
 	}
+	double angle() {
+		R = arccos(R / mod());
+		if (i < 0) R = -R;
+		return R;
+	}
 	std::string toString() {
-		if (isNaN()) return "NaN";
+		if (!isNum()) return "NaN";
 		if (mod() == $inf)			return "inf";
 		if ((R == 0) && (i == 0))	return "0";
 		std::string str = "";
@@ -52,11 +59,9 @@ struct complex {
 	double toDouble() {
 		return D(R) * R * R / mod();
 	}
-	bool isNaN() {
-		unsigned long long	a = *(unsigned long long*)&R;
-		unsigned long long	b = *(unsigned long long*)&i;
-		if ((a >= 0 || a < 0) && (b >= 0 || b < 0)) return false;
-		return true;
+	bool isNum() {
+		if ((R >= 0 || R < 0) && (i >= 0 || i < 0)) return true;
+		return false;
 	}
 	complex() {}
 	complex(double num) {
@@ -69,6 +74,7 @@ struct complex {
 };
 
 complex power(complex x, complex y);
+complex gamma_(complex x);
 double  arccos(double x);
 double  fct(double x);
 
@@ -104,6 +110,7 @@ complex operator * (complex x, complex y) {
 complex operator / (complex x, complex y) {
 	complex z;
 	if (y.mod() == 0) return infinite;
+	if (y.mod() == $inf) return 0;
 	z.R = ((x.R * y.R) + (x.i * y.i)) / (y.R * y.R + y.i * y.i);
 	z.i = ((x.i * y.R) - (x.R * y.i)) / (y.R * y.R + y.i * y.i);
 	return z;
@@ -138,16 +145,21 @@ double D(double x) {
 int Round(double x) {
 	return (int)(x + 0.5);
 }
+double part(double x) {
+	return x - (int)x;
+}
 
-double  ln_0_to_1(double x) {
+double  ln_(double x) {
 	long double
-		G = -x / (x + 1),
-		m = -G;
-	for (int n = 2; n < iterations * 2; n++) {
-		if ((n % 2) == 1) m = m - power(G, n) / n;
-		else			  m = m + power(G, n) / n;
+		G = x / (x + 1),
+		m = G;
+	for (int n = 2; n < iterations; n++) {
+		m = m + power(G, (double)n) / n;
 	}
 	return m;
+}
+double  ln2_(double x) {
+	return ln_(x) * 1.44269504088896;
 }
 double  ln( double x) {
 	if (x == $inf) return $inf;
@@ -156,7 +168,7 @@ double  ln( double x) {
 	unsigned long long	i = *(unsigned long long*)&x;
 	const long long		E = (i >> 52) % 2048 - 1023;																//	экспонента [-1023:1024]
 	const double		M = (double)(i % ((unsigned long long)1 << 52)) / (double)((unsigned long long)1 << 52);	//	мантисса [0:1)
-	return ln_0_to_1(M) + 0.6931471805599453 * (double)E;	//	ln(M) + ln(E)		ln(E) = ln(2) * E
+	return ln_(M) + 0.6931471805599453 * (double)E;	//	ln(M) + ln(E)		ln(E) = ln(2) * E
 }
 complex ln(complex x) {
 	if ((x.R >= 0) && (x.i == 0)) return ln(x.R);
@@ -183,32 +195,39 @@ complex exp(complex x) {
 	if (x.R < -709) return 0;
 	return exp(x.R) * (cos(x.i) + i * sin(x.i));
 }
-complex exp(complex x, int n) {
-	//	0 - Limit
-	//	1 - Taylor series
-	switch (n) {
-	case(0): {
-		long double y;
-		if (0 < x.R) {
-			y = 1 + ((long double)x.R / ((unsigned long long)1 << 32));
-			for (int m = 0; m < 32; m++) y = y * y;
-		}
-		else {
-			y = 1 - ((long double)x.R / ((unsigned long long)1 << 32));
-			for (int m = 0; m < 32; m++) y = y * y;
-			y = 1 / y;
-		}
-		return y * (cos(x.i) + i * sin(x.i));
+double  fast_exp( double x) {
+	long double y;
+	if (0 < x) {
+		y = 1 + ((long double)x / ((unsigned long long)1 << iterations));
+		for (int m = 0; m < iterations; m++) y = y * y;
 	}
-	case(1): {
-		complex z = 1 + x;
-		for (int k = 2; k <= 128; k++) {
-			z = z + power(x, k) / fct(k);
-		}
-		return z;
+	else {
+		y = 1 - ((long double)x / ((unsigned long long)1 << iterations));
+		for (int m = 0; m < iterations; m++) y = y * y;
+		y = 1 / y;
 	}
-	default: return exp(x);
+	return y;
+}
+complex fast_exp(complex x) {
+	if (x.i == 0) return fast_exp(x.R);
+	long double y;
+	if (0 < x.R) {
+		y = 1 + ((long double)x.R / ((unsigned long long)1 << iterations));
+		for (int m = 0; m < iterations; m++) y = y * y;
 	}
+	else {
+		y = 1 - ((long double)x.R / ((unsigned long long)1 << iterations));
+		for (int m = 0; m < iterations; m++) y = y * y;
+		y = 1 / y;
+	}
+	return y * (cos(x.i) + i * sin(x.i));
+}
+complex taylor_exp(complex x) {
+	complex z = 1 + x;
+	for (int k = 2; k <= iterations; k++) {
+		z = z + power(x, k) / factorial(k);
+	}
+	return z;
 }
 
 double  power( double x,  double y) {
@@ -225,7 +244,20 @@ double  power( double x,  double y) {
 		else		for (long long i = (long long)y; i < 1; i++) z = z / x;
 		return z;
 	}
-	return exp(y * ln(x));
+	return fast_exp(y * ln(x));
+}
+complex power(complex x, int y) {
+	if (y == 0) return 1;
+	if (y == $inf || y == $n_inf) {
+		if (x.mod() > 1)		return infinite;
+		else if (x.mod() == 1)	return 1;
+		else					return 0;
+	}
+	if (x == 0) return 0;
+	complex z = x;
+	if (y > 0)	for (long long i = (long long)y; 1 < i; i--) z = z * x;
+	else		for (long long i = (long long)y; i < 1; i++) z = z / x;
+	return z;
 }
 complex power(complex x, complex y) {
 	if (x.R >= 0 && x.i == 0 && y.i == 0) return power(x.R, y.R);
@@ -242,7 +274,7 @@ complex power(complex x, complex y) {
 		else		 for (long long i = (long long)y.R; i < 1; i++) z = z / x;
 		return z;
 	}
-	return exp(y * ln(x));
+	return fast_exp(y * ln(x));
 }
 
 double  factorial( double x) {
@@ -251,9 +283,8 @@ double  factorial( double x) {
 		for (long long i = (long long)x - 1; 1 < i; i--) x = x * i;
 		return x;
 	}
-	x++;	//	x! = Г(x + 1)
-	//	Г(x) = sqrt(2π)/(e^x*sqrt(x))*(x+1/(12x-1/10x))^x		= (sqrt(2π)*e^(-x)*sqrt(1/x)*(x+1/(12x-1/10x))^x)
-	return 2.5066282746310003 / exp(x + ln(x) / 2) * power(x + 1 / (12 * x - 1 / (10 * x)), x);
+	x++;
+	return 2.5066282746310003 / fast_exp(x + ln(x) / 2) * power(x + 1 / (12 * x - 1 / (10 * x)), x);
 }
 complex factorial(complex x) {
 	if (x.mod() == 0) return 1;
@@ -261,9 +292,7 @@ complex factorial(complex x) {
 		for (long long i = (long long)x.R - 1; 1 < i; i--) x.R = x.R * i;
 		return x;
 	}
-	x = x + 1;	//	x! = Г(x + 1)
-	//	Г(x) = sqrt(2π)/(e^x*sqrt(x))*(x+1/(12x-1/10x))^x		= (sqrt(2π)*e^(-x)*sqrt(1/x)*(x+1/(12x-1/10x))^x)
-	return 2.5066282746310003 / exp(x + ln(x) / 2) * power(x + 1 / (12 * x - 1 / (10 * x)), x);
+	return gamma_(x + 1);
 }
 double  fct( double x) {
 	if (!((x < 6500) || (x > -6500))) return $inf;
@@ -273,30 +302,27 @@ double  fct( double x) {
 }
 complex fct(complex x) {
 	if (x.i == 0) return fct(x.R);
-	if (!(x.mod() < 6500)) return infinite;
+	if (!(x.R < 6500)) return infinite;
+	if (x.R < -6500) return 0;
 	if (1 < x.R) return fct(x - 1) * x;
 	if (x.R < 0) return fct(x + 1) / (x + 1);
 	return factorial(x);
 }
 
 double  cos( double x) {
-	if (x < 0) x = -x;
-	x = fmod(x, 2 * pi);
+	x = fmod(x, tau);
 	double c = 1;
-	for (int n = 1; n <= iterations; n++) {
-		if ((n % 2) == 0) c += power(x, 2 * n) / fct(2 * n);
-		else			  c -= power(x, 2 * n) / fct(2 * n);
+	for (int n = 1; n <= iterations / 2; n++) {
+		c += power(x, 4 * (double)n) / factorial(4 * n) - power(x, 4 * (double)n - 2) / factorial(4 * n - 2);
 	}
 	return c;
 }
 complex cos(complex x) {
 	if (x.i == 0) return cos(x.R);
-	if (x.R < 0) x = -x;
-	x = x % (2 * pi);
+	x = x % tau;
 	complex c = 1;
-	for (int n = 1; n <= iterations; n++) {
-		if ((n % 2) == 0) c = c + power(x, 2 * n) / fct(2 * n);
-		else			  c = c - power(x, 2 * n) / fct(2 * n);
+	for (int n = 1; n <= iterations / 2; n++) {
+		c = c + power(x, 4 * n) / factorial(4 * n) - power(x, 4 * n - 2) / factorial(4 * n - 2);
 	}
 	return c;
 }
@@ -311,8 +337,8 @@ double  arccos( double x) {
 	for (int i = 0; i <= iterations / 2; i++) {
 		double t2 = 0.5;
 		for (int j = 1; j <= iterations / 2; j++) {
-			if (j % 2 == 0) t2 = t2 + power(t, j) / fct(2 * (j + 1));
-			else			t2 = t2 - power(t, j) / fct(2 * (j + 1));
+			if (j % 2 == 0) t2 = t2 + power(t, (double)j) / factorial(2 * (j + 1));
+			else			t2 = t2 - power(t, (double)j) / factorial(2 * (j + 1));
 		}
 		t = (1 - x) / t2;
 	}
@@ -329,11 +355,11 @@ complex arccos(complex x) {
 }
 
 double  sin( double x) {
-	return cos(x - pi / 2);
+	return cos(x - 1.5707963267949);
 }
 complex sin(complex x) {
-	if (x.i == 0) return cos(x.R - pi / 2);
-	return cos(x - pi / 2);
+	if (x.i == 0) return cos(x.R - 1.5707963267949);
+	return cos(x - 1.5707963267949);
 }
 
 complex cycloid(complex x) {
@@ -346,30 +372,33 @@ complex arccyc(complex x) {
 }
 
 complex gamma_seed(complex x) {
-	//	[1 : 2]
-	return 0.63212055883 * power(x, x - 2) + 0.36787944117;
-	//	(0 : 1]
-	//return 1 / x + x / 2 - 0.5;
-	//	[1 : 2]
-	//x = x - 1.5;
-	//return x * x / 2 + 0.875;
+	return power(0.5 * x, x - 1);
 }
 complex gamma(complex x) {
-	if ((1 <= x.R) && (x.R <= 2)) {
+	int min = 1, max = 2;
+	if ((min <= x.R) && (x.R <= max)) {
 		complex res = gamma_seed(x);
-		for (int n = iterations; n > 0; n--) {
-			if (n % 2 == 0) {
-				res = (gamma_seed(x + 1) + res * x) / 2;
-			}
-			else {
-				res = (gamma_seed(x) + res / x) / 2;
-			}
+		for (int n = 0; n < iterations / 2; n++) {
+			res = gamma_seed(0.8888888888888889 * (x - 1) + 2) / x + res;
+			res = (gamma_seed(x) + res) / 3;
 		}
 		return res;
 	}
-	if (2 < x.R) return (x - 1) * gamma(x - 1);
-	if (x.R < 1) return gamma(x + 1) / x;
+	if (max < x.R) return (x - 1) * gamma(x - 1);
+	if (x.R < min) return gamma(x + 1) / x;
 	return $NaN;
+}
+complex gamma_(complex x) {
+	//	Г(x) = sqrt(2π)/(e^x*sqrt(x))*(x+1/(12x-1/10x))^x		= (sqrt(2π)*e^(-x)*sqrt(1/x)*(x+1/(12x-1/10x))^x)
+	return 2.5066282746310003 / fast_exp(x + ln(x) / 2) * power(x + 1 / (12 * x - 1 / (10 * x)), x);
+}
+complex gamma_s(complex x) {
+	complex res = gamma_seed(x);
+	for (int n = 0; n < iterations / 2; n++) {
+		res = gamma_seed(0.8888888888888889 * (x - 1) + 2) / x + res;
+		res = (gamma_seed(x) + res) / 3;
+	}
+	return res;
 }
 
 complex zeta(complex x) {
